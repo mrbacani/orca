@@ -166,12 +166,15 @@ export function registerWslHostHandlers(args: {
     }
     return wsl ? wsl.remove(request.environmentId) : { stopped: true }
   })
-  ipcMain.handle('wslHosts:connect', async (_event, request: { environmentId: string }) => {
-    if (!wslHostsGateOpen()) {
-      throw new Error(WSL_HOSTS_GATED_OFF_MESSAGE)
+  ipcMain.handle(
+    'wslHosts:connect',
+    async (_event, request: { environmentId: string; force?: boolean }) => {
+      if (!wslHostsGateOpen()) {
+        throw new Error(WSL_HOSTS_GATED_OFF_MESSAGE)
+      }
+      await wsl?.connect(request.environmentId, { force: request.force === true })
     }
-    await wsl?.connect(request.environmentId)
-  })
+  )
   ipcMain.handle('wslHosts:getCapability', (): WslHostCapability => ({
     serverFiles: wsl?.hasServerFiles() ?? false
   }))

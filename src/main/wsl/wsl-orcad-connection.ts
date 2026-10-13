@@ -21,6 +21,7 @@ import { wslDistroHolderKey } from './wsl-distro-holder-record'
 import {
   defaultWslOrcadEnvironmentId,
   deployAndLaunchWslOrcad,
+  type WslOrcadDeferredUpdate,
   type WslOrcadDeployOptions,
   type WslOrcadLaunch
 } from './wsl-orcad-deploy'
@@ -44,6 +45,8 @@ export type WslOrcadConnection = {
   pid: number | null
   /** orcad's pairing code, with its endpoint rewritten to `ws://127.0.0.1:<localPort>`. */
   pairingOffer: string
+  /** An app update the incumbent `fullVersion` is waiting to take (live terminals). */
+  deferredUpdate: WslOrcadDeferredUpdate | null
   close(): Promise<void>
 }
 
@@ -261,6 +264,7 @@ export class WslOrcadConnectionManager {
           fullVersion: launch.fullVersion,
           pid: launch.pid,
           pairingOffer,
+          deferredUpdate: launch.deferredUpdate ?? null,
           close: () => this.closeEntry(key, entry)
         }
       }
@@ -282,13 +286,15 @@ export class WslOrcadConnectionManager {
     announce: WslOrcadConnectionStatus | null
   ): WslOrcadConnection {
     const pairingOffer = tunneledOrcadPairingCode(launch.readiness, entry.connection.localPort)
+    const deferredUpdate = launch.deferredUpdate ?? null
     const changed =
       pairingOffer !== entry.connection.pairingOffer ||
       launch.fullVersion !== entry.connection.fullVersion ||
-      launch.pid !== entry.connection.pid
+      launch.pid !== entry.connection.pid ||
+      JSON.stringify(deferredUpdate) !== JSON.stringify(entry.connection.deferredUpdate)
     if (changed) {
       const { fullVersion, pid } = launch
-      entry.connection = { ...entry.connection, pairingOffer, fullVersion, pid }
+      entry.connection = { ...entry.connection, pairingOffer, fullVersion, pid, deferredUpdate }
       this.active.set(key, entry)
     }
     trackWslOrcadHostEnvironment(entry.connection, entry.connection)
